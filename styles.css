@@ -71,6 +71,14 @@ code {
 }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .brand .mark { color: var(--muted); flex: none; }
+.actions { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.iconlink {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; flex: none;
+  border-radius: 6px; color: var(--muted);
+}
+.iconlink:hover { color: var(--text); background: var(--bg); }
+.iconlink:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .who { display: flex; align-items: center; gap: 8px; font-size: .9em; min-width: 0; }
 .who img { border-radius: 50%; flex: none; }
 .who #login { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
