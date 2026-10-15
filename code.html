@@ -20,6 +20,10 @@
     outline: none; border-color: var(--accent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
   }
+  /* Unknown name: flag it on the field itself rather than with a message. */
+  .field.bad { border-color: var(--danger); }
+  .field.bad:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 25%, transparent); }
+  .hint { margin: 10px 0 0; font-size: .85em; color: var(--danger); }
   .values { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; }
   .values li { display: flex; gap: 12px; padding: 8px 14px; border-top: 1px solid var(--border); }
   .values li:first-child { border-top: 0; }
@@ -38,8 +42,6 @@
     word-break: break-all; min-height: 1.5em;
   }
   .result.bad { border-color: var(--danger); color: var(--danger); }
-  .breakdown { margin-top: 8px; font-size: .85em; color: var(--muted); }
-  .hint { margin: 6px 0 0; font-size: .85em; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -58,10 +60,12 @@
     <h2><label for="namefield">Name</label></h2>
     <form id="nameform" class="row" autocomplete="off">
       <input id="namefield" class="field" placeholder="key1" spellcheck="false"
-             autocomplete="off" aria-describedby="namehint">
+             autocomplete="off">
       <button type="submit" class="btn btn-primary">Go</button>
     </form>
-    <p id="namehint" class="hint">Loading <code>code.yaml</code>&hellip;</p>
+    <!-- Only ever shown if code.yaml itself fails to load, which would
+         otherwise leave every name silently unmatched. -->
+    <p id="loaderror" class="hint" hidden></p>
   </section>
 
   <!-- Step 2: the values, revealed once a key matches -->
@@ -75,7 +79,6 @@
     <h2><label for="numberfield">Number</label></h2>
     <input id="numberfield" class="field" placeholder="213" spellcheck="false"
            autocomplete="off" inputmode="numeric" style="flex-basis:100%">
-    <p class="hint" id="numberhint"></p>
   </section>
 
   <!-- Step 4: the result -->
@@ -85,7 +88,6 @@
       <button id="copy" class="btn btn-sm btn-ghost" type="button">Copy</button>
     </div>
     <div class="result" id="result"></div>
-    <div class="breakdown" id="breakdown"></div>
   </section>
 </main>
 
@@ -155,8 +157,6 @@ function renderValues() {
     li.append(n, val);
     $('values').append(li);
   });
-  $('numberhint').textContent =
-    'Rows 1–' + activeValues.length + '. Each digit picks one row, in order.';
 }
 
 function highlight(used) {
@@ -168,7 +168,6 @@ function highlight(used) {
 function compute() {
   const input = $('numberfield').value.trim();
   const box = $('result');
-  const breakdown = $('breakdown');
 
   if (!input) {
     $('resultstep').hidden = true;
@@ -185,7 +184,6 @@ function compute() {
       box.classList.add('bad');
       box.textContent = '"' + p.text + '" is not a row between 1 and ' +
                         activeValues.length + '.';
-      breakdown.textContent = '';
       highlight([]);
       return;
     }
@@ -195,18 +193,22 @@ function compute() {
   box.classList.remove('bad');
   // Plain concatenation, immediately followed by the hyphen-joined form.
   box.textContent = picked.join('') + picked.join('-');
-  breakdown.textContent =
-    parts.map((p) => p.n).join(' → ') + '  =  ' + picked.join(', ');
   highlight(parts.map((p) => p.n));
+}
+
+function reject() {
+  $('namefield').classList.add('bad');
+  $('valuesstep').hidden = true;
+  $('numberstep').hidden = true;
+  $('resultstep').hidden = true;
 }
 
 function lookup(e) {
   e.preventDefault();
   const name = $('namefield').value.trim();
-  const hint = $('namehint');
 
   if (!name) {
-    hint.textContent = 'Enter a name first.';
+    reject();
     return;
   }
   // Exact match first, then case-insensitive, so "KEY1" still finds "key1".
@@ -216,17 +218,13 @@ function lookup(e) {
   }
 
   if (!found) {
-    hint.textContent = '"' + name + '" is not in code.yaml. Available: ' +
-                       Object.keys(codes).join(', ');
-    $('valuesstep').hidden = true;
-    $('numberstep').hidden = true;
-    $('resultstep').hidden = true;
+    reject();
     return;
   }
 
   active = found;
   activeValues = codes[found];
-  hint.textContent = '';
+  $('namefield').classList.remove('bad');
   renderValues();
   $('valuesstep').hidden = false;
   $('numberstep').hidden = false;
@@ -235,6 +233,8 @@ function lookup(e) {
 }
 
 $('nameform').addEventListener('submit', lookup);
+// Clear the rejection mark as soon as they start correcting the name.
+$('namefield').addEventListener('input', () => $('namefield').classList.remove('bad'));
 $('numberfield').addEventListener('input', compute);
 $('copy').addEventListener('click', async () => {
   try {
@@ -254,13 +254,11 @@ fetch('code.yaml', { cache: 'no-store' })
   })
   .then((text) => {
     codes = parseCodes(text);
-    const keys = Object.keys(codes);
-    $('namehint').textContent = keys.length
-      ? 'Available names: ' + keys.join(', ')
-      : 'code.yaml has no keys in it.';
   })
   .catch((e) => {
-    $('namehint').textContent = 'Could not load code.yaml (' + e.message + ').';
+    const err = $('loaderror');
+    err.textContent = 'Could not load code.yaml (' + e.message + ').';
+    err.hidden = false;
   });
 </script>
 </body>
