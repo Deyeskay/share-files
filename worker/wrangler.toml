@@ -1,0 +1,14 @@
+name = "share-files-oauth"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+# Public OAuth App client id (same value as clientId in ../config.js).
+GITHUB_CLIENT_ID = "PASTE_YOUR_CLIENT_ID_HERE"
+
+# Only these origins may call this Worker. No trailing slash, comma-separated.
+# Add http://localhost:8080 if you want to test the page locally.
+ALLOWED_ORIGINS = "https://deyeskay.github.io"
+
+# GITHUB_CLIENT_SECRET is deliberately NOT here. Set it out of band with:
+#   npx wrangler secret put GITHUB_CLIENT_SECRET

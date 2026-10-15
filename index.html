@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>share-files</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>&#128193;</text></svg>">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" class="mark">
+      <path fill="currentColor" d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3h-6.5a.25.25 0 0 1-.2-.1l-.9-1.2A1.75 1.75 0 0 0 5.25 1Z"/>
+    </svg>
+    <span>share-files</span>
+  </div>
+  <div class="who" id="who" hidden>
+    <img id="avatar" alt="" width="24" height="24">
+    <span id="login"></span>
+    <button id="signout" class="btn btn-ghost btn-sm">Sign out</button>
+  </div>
+</header>
+
+<main>
+  <!-- Setup not done yet -->
+  <section id="view-setup" class="card notice notice-warn" hidden>
+    <h2>Finish the setup first</h2>
+    <p id="setup-msg"></p>
+    <p class="muted">Open <code>README.md</code> in this repo for the two setup steps, then edit <code>config.js</code>.</p>
+  </section>
+
+  <!-- Signed out -->
+  <section id="view-login" class="card login" hidden>
+    <h1>Your files, in a GitHub repo</h1>
+    <p class="muted">Sign in with GitHub to upload, download and remove files in
+      <code id="login-repo"></code>.</p>
+    <button id="signin" class="btn btn-primary btn-lg">
+      <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
+        <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-2.91-.88-2.91-3.1 0-.63.22-1.15.59-1.55-.04-.1-.26-.73.06-1.52 0 0 .6-.19 1.97.75a5.4 5.4 0 0 1 1.4-.19c.48 0 .96.06 1.41.19 1.37-.95 1.97-.75 1.97-.75.32.79.1 1.42.05 1.52.37.4.59.92.59 1.55 0 2.23-1.13 2.9-2.92 3.1.29.26.55.75.55 1.52 0 1.09-.01 1.98-.01 2.25 0 .21.15.46.55.38A7.99 7.99 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+      </svg>
+      Sign in with GitHub
+    </button>
+    <p class="fineprint">GitHub will ask you to grant the <code>repo</code> scope. See the
+      security note in the README for what that covers.</p>
+  </section>
+
+  <!-- Signed in -->
+  <section id="view-files" hidden>
+    <div id="drop" class="dropzone">
+      <input type="file" id="picker" multiple hidden>
+      <p><strong>Drop files here</strong> or <button id="browse" class="linkbtn">choose files</button></p>
+      <p class="muted small">Uploaded to <code id="target-path"></code></p>
+    </div>
+
+    <div id="queue" class="queue" hidden></div>
+
+    <div class="listhead">
+      <nav id="crumbs" class="crumbs" aria-label="Folder path"></nav>
+      <button id="refresh" class="btn btn-ghost btn-sm">Refresh</button>
+    </div>
+
+    <ul id="list" class="list"></ul>
+    <p id="empty" class="muted empty" hidden>This folder is empty.</p>
+    <p id="loading" class="muted empty" hidden>Loading&hellip;</p>
+  </section>
+</main>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
