@@ -1,13 +1,18 @@
 # Each key holds any number of rows. Rows are numbered from 1, top to bottom.
 # Indent the rows under the key. A leading "- " is optional.
 
-key1:
-    abcd
-    efgh
-    ijkl
-    mnop
+share1:
+    mc_2suCjYlEep5T8iM7OhorIcaj
+    usRR5JsXTBW9xhkA2lBNUIENOOJUZCwukUw
+    kjaA6hnNNm9d9h8Xc3rI
+    12K3JNKNR23eLKLm32Uzuk
+    11AYC5BUQ0zBI3yyWmPZ
+    B13op0kO1eR6bfKuC5BUQ0zB
+    TBW9xhkA2lBNmc_2suCjYlE
+    3eLKLm32UzukOhorIcajkA
+    A6hnNNm9d9W9xhkAUQ0zBI
 
-key2:
+share2:
     1111
     2222
     3333
