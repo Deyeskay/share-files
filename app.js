@@ -3,7 +3,6 @@
 const cfg = window.SHARE_FILES_CONFIG || {};
 const API = 'https://api.github.com';
 const TOKEN_KEY = 'sharefiles.token';
-const STATE_KEY = 'sharefiles.oauthstate';
 
 // GitHub refuses files over 100 MB through the Contents API, and anything over
 // ~25 MB is already slow because the request body is base64 (+33% size).
@@ -13,7 +12,9 @@ const MAX_BYTES = 100 * 1024 * 1024;
 const $ = (id) => document.getElementById(id);
 const el = {
   setup: $('view-setup'), setupMsg: $('setup-msg'),
-  login: $('view-login'), loginRepo: $('login-repo'), signin: $('signin'),
+  login: $('view-login'), loginRepo: $('login-repo'),
+  tokenForm: $('tokenform'), tokenInput: $('tokeninput'),
+  connect: $('connect'), createLink: $('createlink'),
   files: $('view-files'), who: $('who'), avatar: $('avatar'),
   loginName: $('login'), signout: $('signout'),
   drop: $('drop'), picker: $('picker'), browse: $('browse'),
@@ -86,7 +87,8 @@ async function gh(path, opts = {}) {
 
   if (res.status === 401) {
     signOut();
-    throw new Error('Your session expired. Please sign in again.');
+    throw new Error('That token was rejected. It may be expired, revoked, or ' +
+                    'mistyped. Create a new one and paste it again.');
   }
   if (!res.ok) {
     let detail = res.statusText;
@@ -96,8 +98,8 @@ async function gh(path, opts = {}) {
     } catch { /* error body was not JSON */ }
 
     if (res.status === 404) {
-      detail = 'Not found. Check that "' + cfg.dataRepo + '" exists and that you ' +
-               'granted access to it when signing in.';
+      detail = 'Cannot reach "' + cfg.dataRepo + '". Check the repo name in ' +
+               'config.js, and that your token grants Contents access to it.';
     } else if (res.status === 403 && res.headers.get('x-ratelimit-remaining') === '0') {
       detail = 'GitHub rate limit reached. Try again in a few minutes.';
     } else if (res.status === 409) {
@@ -389,96 +391,47 @@ async function handleFiles(fileList) {
 // auth
 // ---------------------------------------------------------------------------
 
-function redirectUri() {
-  return location.origin + location.pathname;
-}
-
-function randomState() {
-  const a = new Uint8Array(16);
-  crypto.getRandomValues(a);
-  return Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-function signIn() {
-  const state = randomState();
-  try {
-    sessionStorage.setItem(STATE_KEY, state);
-  } catch {
-    toast('Browser storage is blocked, so sign-in cannot complete safely.', true);
-    return;
-  }
-  const u = new URL('https://github.com/login/oauth/authorize');
-  u.searchParams.set('client_id', cfg.clientId);
-  u.searchParams.set('redirect_uri', redirectUri());
-  u.searchParams.set('scope', 'repo');
-  u.searchParams.set('state', state);
-  location.assign(u.toString());
-}
-
 function signOut() {
   token = null;
   try { localStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+  el.tokenInput.value = '';
   setView('login');
 }
 
 /**
- * If GitHub sent us back with ?code=..., trade it for a token via the Worker.
- * Returns true when this page load was an OAuth callback.
+ * Check a token before trusting it: it must identify a user AND actually reach
+ * the data repo. Catching the second case here turns the most likely mistake
+ * -- a token that omits this repo -- into a clear message instead of a 404
+ * the first time you try to upload something.
  */
-async function completeOAuth() {
-  const params = new URLSearchParams(location.search);
-  const code = params.get('code');
-  const returnedState = params.get('state');
-  const oauthError = params.get('error');
-
-  if (!code && !oauthError) return false;
-
-  // Clear the URL at once so the code is never reused, bookmarked or shared.
-  history.replaceState({}, '', location.pathname);
-
-  if (oauthError) {
-    toast('GitHub refused the sign-in: ' +
-          (params.get('error_description') || oauthError), true);
-    return true;
-  }
-
-  let expected = null;
-  try {
-    expected = sessionStorage.getItem(STATE_KEY);
-    sessionStorage.removeItem(STATE_KEY);
-  } catch { /* ignore */ }
-
-  // Without this check, someone could hand you a link that logs you into
-  // their account instead of yours (login CSRF).
-  if (!expected || expected !== returnedState) {
-    toast('Sign-in state did not match, so it was aborted. Please try again.', true);
-    return true;
-  }
-
-  const res = await fetch(cfg.tokenProxy, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: code, redirect_uri: redirectUri() }),
-  });
-
-  let body = {};
-  try { body = await res.json(); } catch { /* ignore */ }
-
-  if (!res.ok || body.error || !body.access_token) {
-    toast('Token exchange failed: ' +
-          (body.error_description || body.error || 'HTTP ' + res.status), true);
-    return true;
-  }
-
-  token = body.access_token;
-  try { localStorage.setItem(TOKEN_KEY, token); } catch { /* ignore */ }
-  return true;
-}
-
-async function loadUser() {
+async function verifyToken() {
   const u = await (await gh('/user')).json();
+  await gh('/repos/' + cfg.dataRepo);
   el.avatar.src = u.avatar_url;
   el.loginName.textContent = u.login;
+}
+
+async function connect(rawToken) {
+  const candidate = rawToken.trim();
+  if (!candidate) {
+    toast('Paste a token first.', true);
+    return;
+  }
+
+  const previous = token;
+  token = candidate;
+  try {
+    await verifyToken();
+  } catch (e) {
+    token = previous;
+    toast(e.message, true);
+    return;
+  }
+
+  try { localStorage.setItem(TOKEN_KEY, candidate); } catch { /* ignore */ }
+  el.tokenInput.value = '';
+  setView('files');
+  await refresh();
 }
 
 // ---------------------------------------------------------------------------
@@ -486,22 +439,20 @@ async function loadUser() {
 // ---------------------------------------------------------------------------
 
 function configProblem() {
-  if (!cfg.clientId || cfg.clientId.indexOf('PASTE') === 0) {
-    return 'config.js still holds the placeholder clientId. Register a GitHub ' +
-           'OAuth App (README step 1) and paste its Client ID there.';
-  }
-  if (!cfg.tokenProxy || cfg.tokenProxy.includes('PASTE')) {
-    return 'config.js still holds the placeholder tokenProxy. Deploy the Cloudflare ' +
-           'Worker in worker/ (README step 2) and paste its URL there.';
-  }
   if (!cfg.dataRepo || !cfg.dataRepo.includes('/')) {
     return 'config.js needs dataRepo set to "owner/repo".';
+  }
+  if (!cfg.branch) {
+    return 'config.js needs branch set to the data repo default branch.';
   }
   return null;
 }
 
 function wire() {
-  el.signin.addEventListener('click', signIn);
+  el.tokenForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    guard(el.connect, 'Connect', () => connect(el.tokenInput.value));
+  });
   el.signout.addEventListener('click', signOut);
   el.refresh.addEventListener('click', () => guard(el.refresh, 'Refresh', refresh));
   el.browse.addEventListener('click', () => el.picker.click());
@@ -537,22 +488,15 @@ async function main() {
   el.loginRepo.textContent = cfg.dataRepo;
   wire();
 
-  try {
-    await completeOAuth();
-  } catch (e) {
-    toast('Sign-in failed: ' + e.message, true);
-  }
-
-  if (!token) {
-    try { token = localStorage.getItem(TOKEN_KEY); } catch { /* ignore */ }
-  }
+  try { token = localStorage.getItem(TOKEN_KEY); } catch { /* ignore */ }
   if (!token) {
     setView('login');
     return;
   }
 
+  // A stored token can be revoked or expired since last visit.
   try {
-    await loadUser();
+    await verifyToken();
   } catch (e) {
     toast(e.message, true);
     signOut();

@@ -1,17 +1,11 @@
 // ---------------------------------------------------------------------------
-// Edit this file after you finish the setup steps in README.md.
-// These values are PUBLIC (anyone can read them). That is fine and expected:
-// the OAuth client_id is designed to be public, and the client_secret never
-// comes near this file -- it lives only in the Cloudflare Worker.
+// The only file you need to edit.
+//
+// Nothing secret belongs here. Your access token is never stored in this file;
+// you paste it into the page itself and it stays in your browser.
 // ---------------------------------------------------------------------------
 window.SHARE_FILES_CONFIG = {
-  // From your GitHub OAuth App (README step 1).
-  clientId: 'PASTE_YOUR_CLIENT_ID_HERE',
-
-  // Your deployed Cloudflare Worker URL (README step 2).
-  tokenProxy: 'https://PASTE-YOUR-WORKER.workers.dev',
-
-  // The repo that actually STORES the files, as "owner/repo".
+  // The repo that stores the files, as "owner/repo".
   // This one is private, so the files in it are private too.
   dataRepo: 'Deyeskay/share-files-data',
 

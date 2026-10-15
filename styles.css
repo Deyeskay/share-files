@@ -92,6 +92,28 @@ main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
 .login h1 { margin: 0 0 8px; font-size: 1.5rem; }
 .login > .muted { margin: 0 0 20px; }
 .fineprint { margin: 16px 0 0; font-size: .8em; color: var(--muted); }
+.login .small { margin: 12px 0 0; }
+.login a { color: var(--accent); }
+
+#tokenform {
+  display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+  margin-top: 4px;
+}
+.tokenfield {
+  flex: 1 1 320px; min-width: 0;
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+.tokenfield:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
 
 /* buttons */
 .btn {
