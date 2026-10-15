@@ -46,11 +46,15 @@ land in the `files/` subfolder. Just know they are world-readable.
 
 Four steps, about 15 minutes. Do them in order.
 
-### Step 0 — Create the private data repo
+### Step 0 — Create the private data repo ✅ done
 
-On GitHub, create a new **private** repo named `share-files-data`.
-Tick "Add a README" so the repo is not empty (an empty repo has no branch, and
-the app needs a branch to write to).
+<https://github.com/Deyeskay/share-files-data> exists and is private.
+`config.js` already points at it.
+
+One thing to confirm: the repo must **not be empty**. A repo with no commits has
+no branch, and the app needs a branch to write to. Open it — if GitHub shows the
+"Quick setup" page instead of a file list, add a README through the web UI
+("creating a new file" → `README.md` → Commit), then carry on.
 
 > Your existing `robot.zip` is currently in the public `share-files` repo. If
 > you want it private, download it and re-upload it through the app once setup

@@ -12,13 +12,13 @@ window.SHARE_FILES_CONFIG = {
   tokenProxy: 'https://PASTE-YOUR-WORKER.workers.dev',
 
   // The repo that actually STORES the files, as "owner/repo".
-  // Use a PRIVATE repo here if you want the files to be private.
-  dataRepo: 'Deyeskay/share-files',
+  // This one is private, so the files in it are private too.
+  dataRepo: 'Deyeskay/share-files-data',
 
-  // Branch to read and write.
+  // Branch to read and write. Must match the data repo's default branch.
   branch: 'main',
 
-  // Subfolder inside the repo where files live. Keeps uploads from sitting
-  // next to the app's own index.html. Set to '' to use the repo root.
-  basePath: 'files',
+  // Subfolder inside the repo where files live. Empty means the repo root,
+  // which is what we want: this repo holds nothing but your files.
+  basePath: '',
 };
