@@ -105,20 +105,27 @@ async function gh(path, opts = {}) {
     } else if (res.status === 409) {
       detail = 'The repo changed while writing. Hit Refresh and try again.';
     }
-    throw new Error(detail);
+    // Carry the status so callers can branch on it. Matching on the message
+    // text instead is brittle: rewording a message silently breaks the check.
+    const err = new Error(detail);
+    err.status = res.status;
+    throw err;
   }
   return res;
 }
 
-const contentsUrl = (p) => '/repos/' + cfg.dataRepo + '/contents/' + encodePath(p);
+// No trailing slash for the repo root: ".../contents", not ".../contents/".
+const contentsUrl = (p) =>
+  '/repos/' + cfg.dataRepo + '/contents' + (p ? '/' + encodePath(p) : '');
 
 async function listFolder(path) {
   let res;
   try {
     res = await gh(contentsUrl(path) + '?ref=' + encodeURIComponent(cfg.branch));
   } catch (e) {
-    // A folder that does not exist yet is a normal empty state, not an error.
-    if (/Not found/.test(e.message)) return [];
+    // 404 here is the normal "nothing here yet" state: a repo with no commits,
+    // or a folder that holds no files. Not an error worth showing.
+    if (e.status === 404) return [];
     throw e;
   }
   const data = await res.json();
