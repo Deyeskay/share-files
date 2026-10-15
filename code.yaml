@@ -1,0 +1,14 @@
+# Each key holds any number of rows. Rows are numbered from 1, top to bottom.
+# Indent the rows under the key. A leading "- " is optional.
+
+key1:
+    abcd
+    efgh
+    ijkl
+    mnop
+
+key2:
+    1111
+    2222
+    3333
+    4444

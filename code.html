@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Lookup</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>&#128273;</text></svg>">
+<style>
+  .step { margin-top: 24px; }
+  .step h2 { font-size: .95rem; margin: 0 0 8px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .field {
+    flex: 1 1 220px; min-width: 0; font: inherit;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 9px 12px; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--bg); color: var(--text);
+  }
+  .field:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .values { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; }
+  .values li { display: flex; gap: 12px; padding: 8px 14px; border-top: 1px solid var(--border); }
+  .values li:first-child { border-top: 0; }
+  .values .n {
+    flex: none; width: 1.6em; text-align: right; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .values .v { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .values li.used { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .values li.used .n { color: var(--accent); font-weight: 600; }
+
+  .result {
+    margin-top: 8px; padding: 14px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--panel);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    word-break: break-all; min-height: 1.5em;
+  }
+  .result.bad { border-color: var(--danger); color: var(--danger); }
+  .breakdown { margin-top: 8px; font-size: .85em; color: var(--muted); }
+  .hint { margin: 6px 0 0; font-size: .85em; color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" class="mark">
+      <path fill="currentColor" d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0ZM5.5 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm2.25-1h5.5v1.5h-1.5V10h-1.5V8.5h-2.5Z"/>
+    </svg>
+    <span>Code Lookup</span>
+  </div>
+</header>
+
+<main>
+  <!-- Step 1: the key -->
+  <section class="step">
+    <h2><label for="namefield">Name</label></h2>
+    <form id="nameform" class="row" autocomplete="off">
+      <input id="namefield" class="field" placeholder="key1" spellcheck="false"
+             autocomplete="off" aria-describedby="namehint">
+      <button type="submit" class="btn btn-primary">Go</button>
+    </form>
+    <p id="namehint" class="hint">Loading <code>code.yaml</code>&hellip;</p>
+  </section>
+
+  <!-- Step 2: the values, revealed once a key matches -->
+  <section class="step" id="valuesstep" hidden>
+    <h2>Values for <code id="activekey"></code></h2>
+    <ul class="values" id="values"></ul>
+  </section>
+
+  <!-- Step 3: the number -->
+  <section class="step" id="numberstep" hidden>
+    <h2><label for="numberfield">Number</label></h2>
+    <input id="numberfield" class="field" placeholder="213" spellcheck="false"
+           autocomplete="off" inputmode="numeric" style="flex-basis:100%">
+    <p class="hint" id="numberhint"></p>
+  </section>
+
+  <!-- Step 4: the result -->
+  <section class="step" id="resultstep" hidden>
+    <div class="row" style="align-items:baseline; justify-content:space-between">
+      <h2 style="margin:0">Result</h2>
+      <button id="copy" class="btn btn-sm btn-ghost" type="button">Copy</button>
+    </div>
+    <div class="result" id="result"></div>
+    <div class="breakdown" id="breakdown"></div>
+  </section>
+</main>
+
+<script>
+'use strict';
+
+const $ = (id) => document.getElementById(id);
+let codes = {};          // { key: [row, row, ...] }
+let active = null;       // currently matched key
+let activeValues = [];
+
+/**
+ * Parse the project's own code.yaml shape:
+ *
+ *   key1:
+ *       abcd
+ *       efgh
+ *
+ * Note this is NOT a YAML list -- a real YAML parser would fold those lines
+ * into the single string "abcd efgh". We want one row per line, so the file is
+ * read line by line here. A leading "- " is tolerated so proper YAML list
+ * syntax keeps working too.
+ */
+function parseCodes(text) {
+  const out = {};
+  let key = null;
+
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.trim() || line.trim().startsWith('#')) continue;
+
+    const header = line.match(/^(\S[^:]*):\s*$/);
+    if (header) {
+      key = header[1].trim();
+      out[key] = [];
+      continue;
+    }
+    if (key && /^\s/.test(line)) {
+      out[key].push(line.trim().replace(/^-\s*/, ''));
+    }
+  }
+  return out;
+}
+
+/**
+ * Split the number input into row positions.
+ * "213" -> [2,1,3]. Commas or spaces also work ("2,1,3"), which is the only
+ * way to reach rows past 9 when a key has more than nine of them.
+ */
+function positions(input) {
+  const raw = /[,\s]/.test(input)
+    ? input.split(/[,\s]+/).filter(Boolean)
+    : input.split('');
+  return raw.map((t) => ({ text: t, n: /^\d+$/.test(t) ? parseInt(t, 10) : NaN }));
+}
+
+function renderValues() {
+  $('activekey').textContent = active;
+  $('values').textContent = '';
+  activeValues.forEach((v, i) => {
+    const li = document.createElement('li');
+    const n = document.createElement('span');
+    n.className = 'n';
+    n.textContent = String(i + 1);
+    const val = document.createElement('span');
+    val.className = 'v';
+    val.textContent = v;
+    li.append(n, val);
+    $('values').append(li);
+  });
+  $('numberhint').textContent =
+    'Rows 1–' + activeValues.length + '. Each digit picks one row, in order.';
+}
+
+function highlight(used) {
+  [...$('values').children].forEach((li, i) => {
+    li.classList.toggle('used', used.includes(i + 1));
+  });
+}
+
+function compute() {
+  const input = $('numberfield').value.trim();
+  const box = $('result');
+  const breakdown = $('breakdown');
+
+  if (!input) {
+    $('resultstep').hidden = true;
+    highlight([]);
+    return;
+  }
+  $('resultstep').hidden = false;
+
+  const parts = positions(input);
+  const picked = [];
+
+  for (const p of parts) {
+    if (!Number.isInteger(p.n) || p.n < 1 || p.n > activeValues.length) {
+      box.classList.add('bad');
+      box.textContent = '"' + p.text + '" is not a row between 1 and ' +
+                        activeValues.length + '.';
+      breakdown.textContent = '';
+      highlight([]);
+      return;
+    }
+    picked.push(activeValues[p.n - 1]);
+  }
+
+  box.classList.remove('bad');
+  // Plain concatenation, immediately followed by the hyphen-joined form.
+  box.textContent = picked.join('') + picked.join('-');
+  breakdown.textContent =
+    parts.map((p) => p.n).join(' → ') + '  =  ' + picked.join(', ');
+  highlight(parts.map((p) => p.n));
+}
+
+function lookup(e) {
+  e.preventDefault();
+  const name = $('namefield').value.trim();
+  const hint = $('namehint');
+
+  if (!name) {
+    hint.textContent = 'Enter a name first.';
+    return;
+  }
+  // Exact match first, then case-insensitive, so "KEY1" still finds "key1".
+  let found = Object.prototype.hasOwnProperty.call(codes, name) ? name : null;
+  if (!found) {
+    found = Object.keys(codes).find((k) => k.toLowerCase() === name.toLowerCase()) || null;
+  }
+
+  if (!found) {
+    hint.textContent = '"' + name + '" is not in code.yaml. Available: ' +
+                       Object.keys(codes).join(', ');
+    $('valuesstep').hidden = true;
+    $('numberstep').hidden = true;
+    $('resultstep').hidden = true;
+    return;
+  }
+
+  active = found;
+  activeValues = codes[found];
+  hint.textContent = '';
+  renderValues();
+  $('valuesstep').hidden = false;
+  $('numberstep').hidden = false;
+  compute();
+  $('numberfield').focus();
+}
+
+$('nameform').addEventListener('submit', lookup);
+$('numberfield').addEventListener('input', compute);
+$('copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText($('result').textContent);
+    $('copy').textContent = 'Copied';
+  } catch {
+    $('copy').textContent = 'Press Ctrl+C';
+  }
+  setTimeout(() => { $('copy').textContent = 'Copy'; }, 1500);
+});
+
+// Load the codes up front so a wrong name can be reported immediately.
+fetch('code.yaml', { cache: 'no-store' })
+  .then((r) => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.text();
+  })
+  .then((text) => {
+    codes = parseCodes(text);
+    const keys = Object.keys(codes);
+    $('namehint').textContent = keys.length
+      ? 'Available names: ' + keys.join(', ')
+      : 'code.yaml has no keys in it.';
+  })
+  .catch((e) => {
+    $('namehint').textContent = 'Could not load code.yaml (' + e.message + ').';
+  });
+</script>
+</body>
+</html>
