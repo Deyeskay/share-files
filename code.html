@@ -191,8 +191,7 @@ function compute() {
   }
 
   box.classList.remove('bad');
-  // Plain concatenation, immediately followed by the hyphen-joined form.
-  box.textContent = picked.join('') + picked.join('-');
+  box.textContent = picked.join('');
   highlight(parts.map((p) => p.n));
 }
 
